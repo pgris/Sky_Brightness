@@ -25,5 +25,5 @@ setup -k -r ../sims_photUtils
 setup -k -r ../sims_coordUtils
 setup -k -r ../sims_maf
 setup -k -r ../sims_operations
-
+export PYTHONPATH=../sims_operations/python/lsst/sims/operations:$PYTHONPATH
 #eups declare pyephem system -m none -r none -c
