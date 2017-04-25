@@ -1,4 +1,6 @@
 from Sky_Brightness_With_Moonlight import * 
+from Throughputs import *
+from Parameters import *
 
 parser = OptionParser()
 parser.add_option("-f", "--fieldname", type="string", default="DD", help="filter [%default]")
@@ -7,9 +9,47 @@ parser.add_option("-n", "--fieldid", type="int", default=290, help="filter [%def
 opts, args = parser.parse_args()
 
 To_Process=False
+Plot_Brightness=True
 Plot=False
 Test=False
-Test_airmass=True
+Test_airmass=False
+ 
+def Calc_Integ(bandpass):
+        resu=0.
+        dlam=0
+        for i,wave in enumerate(bandpass.wavelen):
+            if i < len(bandpass.wavelen)-1:
+                dlam=bandpass.wavelen[i+1]-wave
+                resu+=dlam*bandpass.sb[i]/wave
+            #resu+=dlam*bandpass.sb[i]
+
+        return resu  
+
+def Plot_Filters(sela,dict_posd,whata=[],whatb=[],legx='',legy=''):
+       
+
+    fige, axe = plt.subplots(ncols=2, nrows=3, figsize=(14,10))
+   
+    for j,band in enumerate(['u','g','r','i','z','y']):
+        sela=sel[np.where(sel['filter']==band)]
+        selac=selb[np.where(selb['filter']==band)]
+        if j<2:
+            k=0
+        if j>= 2 and j < 4:
+            k=1
+        if j>=4:
+            k=2
+
+        axe[k][j%2].plot(sela[whata[0]],sela[whatb[0]]-sela[whatb[1]],'k.')
+        axe[k][j%2].set_xlabel(r''+legx,{'fontsize': 10.})
+        axe[k][j%2].set_ylabel(r''+legy,{'fontsize': 10.})
+        axe[k][j%2].text(dict_posd[band][0], dict_posd[band][1], band, style='italic',
+                         bbox={'facecolor':'yellow', 'alpha':0.5, 'pad':10})
+
+def Plot_3D(sel):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(sel['moonPhase'],sel['filtSkyBrightness']-sel['mbsky_through'],sel['moonZD_DEG'], c='r', marker='o')
 
 
 if To_Process:
@@ -32,7 +72,7 @@ if To_Process:
 
     transmission=Throughputs()
 
-    mytype=[('filter',np.dtype('a15')),('filtSkyBrightness', np.float),('mbsky_through', np.float),('mbsky_through_moon', np.float),('moonPhase', np.float),('moonDiam', np.float),('year',np.int),('month',np.int),('day',np.int),('hour',np.int),('min',np.int),('sec',np.int),('MJD', np.float),('year_sunset',np.int),('month_sunset',np.int),('day_sunset',np.int),('hour_sunset',np.int),('min_sunset',np.int),('sec_sunset',np.int),('year_sunrise',np.int),('month_sunrise',np.int),('day_sunrise',np.int),('hour_sunrise',np.int),('min_sunrise',np.int),('sec_sunrise',np.int),('moonZD_DEG', np.float),('moon_airmass', np.float),('targetZD_DEG', np.float),('target_airmass', np.float),('fiveSigmaDepth', np.float),('m5_with_moon', np.float),('m5_darksky', np.float),('m5_recalc', np.float),('m5_recalc_atmthrough', np.float),('katm',np.float),('katm_aero',np.float),('katm_opsim',np.float),('airmass',np.float)]
+    mytype=[('filter',np.dtype('a15')),('filtSkyBrightness', np.float),('mbsky_through', np.float),('mbsky_through_moon', np.float),('moonPhase', np.float),('moonDiam', np.float),('year',np.int),('month',np.int),('day',np.int),('hour',np.int),('min',np.int),('sec',np.int),('MJD', np.float),('year_sunset',np.int),('month_sunset',np.int),('day_sunset',np.int),('hour_sunset',np.int),('min_sunset',np.int),('sec_sunset',np.int),('year_sunrise',np.int),('month_sunrise',np.int),('day_sunrise',np.int),('hour_sunrise',np.int),('min_sunrise',np.int),('sec_sunrise',np.int),('moonZD_DEG', np.float),('moon_airmass', np.float),('targetZD_DEG', np.float),('target_airmass', np.float),('fiveSigmaDepth', np.float),('m5_with_moon', np.float),('m5_darksky', np.float),('m5_recalc', np.float),('m5_recalc_atmthrough', np.float),('katm',np.float),('katm_aero',np.float),('katm_opsim',np.float),('airmass',np.float),('moonBr',np.float),('totBr',np.float),('twilight',np.float),('distance2moon',np.float)]
 
     tab_resu=np.zeros((60,1),dtype=[type for type in mytype])
 
@@ -88,8 +128,8 @@ if To_Process:
                 reftime=data['expMJD'][i]
             io+=1
         #print katm,katm_aero,param.kAtm[filtre]
-            if io >9:
-                break
+            #if io >9:
+                #break
         num+=1
         if len(tab_resu) <= num:
             tab_resu=np.resize(tab_resu,(len(tab_resu)+100,1))
@@ -109,6 +149,12 @@ if To_Process:
         tab_resu['mbsky_through_moon'][num]=mysky.new_skybrightness()
         tab_resu['moonPhase'][num]=mysky.moonPhase
         tab_resu['moonDiam'][num]=mysky.moonDiam
+        tab_resu['moonBr'][num]=mysky.moonBr
+        tab_resu['totBr'][num]=mysky.totBr
+        tab_resu['twilight'][num]=mysky.twilight
+        tab_resu['distance2moon'][num]=mysky.distance2moon_DEG
+        
+
         tab_resu['year'][num]=yy
         tab_resu['month'][num]=mm
         tab_resu['day'][num]=dd
@@ -157,22 +203,15 @@ if To_Process:
     pkl.dump(tab_resu, pkl_file_res)
     pkl_file_res.close()
 
-
-if Plot:
-    filename='MoonLight_spare.pkl'
+if Plot_Brightness:
+    filename='MoonLight.pkl'
     pkl_file = open(filename,'rb')
     tab_load=pkl.load(pkl_file)
 
     sel=tab_load
-    #sel=tab_load[np.where(np.logical_and(tab_load['MJD']>59750.418928,tab_load['MJD']<59887.071327))]
-    #sel=tab_load[np.where(np.logical_and(tab_load['MJD']>=59758,tab_load['MJD']<=59770.))]
-#sel=sel[np.where(sel['hour']<1)]
-#plt.plot(sel['hour_sunset']-sel['hour'],sel['filtSkyBrightness']-sel['mbsky_through'],'ko')
-    figa, axa = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
-    #axa.hist(sel['m5_with_moon']-sel['fiveSigmaDepth'],bins=20)
-    axa.plot(sel['moonPhase'],sel['m5_with_moon']-sel['fiveSigmaDepth'],'ko')
 
-    selb=sel[np.where(sel['moonZD_DEG']<85.)]
+    theval=85.
+    selb=sel[np.where(sel['moonZD_DEG']<theval)]
     
     figb, axb = plt.subplots(ncols=2, nrows=3, figsize=(14,10))
     
@@ -194,8 +233,97 @@ if Plot:
         if j>=4:
             k=2
         tot_label=[]
-        tot_label.append(axb[k][j%2].plot(sela['moonPhase'],sela['filtSkyBrightness']-sela['mbsky_through'],'k.',label='Moon ZD > 85$^{o}$'))
-        tot_label.append(axb[k][j%2].plot(selac['moonPhase'],selac['filtSkyBrightness']-selac['mbsky_through'],'r.',label='Moon ZD < 85$^{o}$'))
+        tot_label.append(axb[k][j%2].plot(sela['moonPhase'],sela['filtSkyBrightness']-sela['mbsky_through'],'k.',label='Moon ZD > '+str(theval)+'$^{o}$'))
+        tot_label.append(axb[k][j%2].plot(selac['moonPhase'],selac['filtSkyBrightness']-selac['mbsky_through'],'r.',label='Moon ZD < '+str(theval)+'$^{o}$'))
+        axb[k][j%2].set_xlabel(r'Moon Phase',{'fontsize': 14.})
+        axb[k][j%2].set_ylabel(r'$m_{sky}^{Opsim}-m_{sky}^{darksky}$',{'fontsize': 14.})
+        #axb[k][j%2].legend(loc='center left',prop={'size':12})
+        axb[k][j%2].legend(loc='best',prop={'size':10})
+        axb[k][j%2].text(dict_pos[band][0], dict_pos[band][1], band, style='italic',
+                         bbox={'facecolor':'yellow', 'alpha':0.5, 'pad':10})
+
+    figa, axa = plt.subplots(ncols=2, nrows=3, figsize=(14,10))
+    for j,band in enumerate(['u','g','r','i','z','y']):
+        sela=sel[np.where(np.logical_and(sel['filter']==band,sel['moonBr']>=0.))]
+        selac=selb[np.where(np.logical_and(selb['filter']==band,selb['moonBr']>=0))]
+        if j<2:
+            k=0
+        if j>= 2 and j < 4:
+            k=1
+        if j>=4:
+            k=2
+        tot_label=[]
+        tot_label.append(axa[k][j%2].plot(sela['distance2moon'],sela['filtSkyBrightness']-sela['mbsky_through'],'k.',label='Moon ZD > '+str(theval)+'$^{o}$'))
+        tot_label.append(axa[k][j%2].plot(selac['distance2moon'],selac['filtSkyBrightness']-selac['mbsky_through'],'r.',label='Moon ZD < '+str(theval)+'$^{o}$'))
+        axa[k][j%2].set_xlabel(r'Distance to Moon [deg]',{'fontsize': 14.})
+        axa[k][j%2].set_ylabel(r'$m_{sky}^{Opsim}-m_{sky}^{darksky}$',{'fontsize': 14.})
+        #axb[k][j%2].legend(loc='center left',prop={'size':12})
+        axa[k][j%2].legend(loc='best',prop={'size':10})
+        axa[k][j%2].text(dict_pos[band][0], dict_pos[band][1], band, style='italic',
+                         bbox={'facecolor':'yellow', 'alpha':0.5, 'pad':10})
+
+    figc, axc = plt.subplots(ncols=2, nrows=3, figsize=(14,10))
+    for j,band in enumerate(['u','g','r','i','z','y']):
+        sela=sel[np.where(sel['filter']==band)]
+        selac=selb[np.where(selb['filter']==band)]
+        if j<2:
+            k=0
+        if j>= 2 and j < 4:
+            k=1
+        if j>=4:
+            k=2
+        tot_label=[]
+        tot_label.append(axc[k][j%2].plot(sela['moonPhase'],sela['totBr']-sela['mbsky_through'],'k.',label='Moon ZD > '+str(theval)+'$^{o}$'))
+        tot_label.append(axc[k][j%2].plot(selac['moonPhase'],selac['totBr']-selac['mbsky_through'],'r.',label='Moon ZD < '+str(theval)+'$^{o}$'))
+        axc[k][j%2].set_xlabel(r'Moon Phase',{'fontsize': 14.})
+        axc[k][j%2].set_ylabel(r'$m_{sky}^{Opsim}-m_{sky}^{darksky}$',{'fontsize': 14.})
+        #axb[k][j%2].legend(loc='center left',prop={'size':12})
+        axc[k][j%2].legend(loc='best',prop={'size':10})
+        axc[k][j%2].text(dict_pos[band][0], dict_pos[band][1], band, style='italic',
+                         bbox={'facecolor':'yellow', 'alpha':0.5, 'pad':10})
+
+
+if Plot:
+    filename='MoonLight.pkl'
+    pkl_file = open(filename,'rb')
+    tab_load=pkl.load(pkl_file)
+
+    sel=tab_load
+    #sel=tab_load[np.where(np.logical_and(tab_load['MJD']>59750.418928,tab_load['MJD']<59887.071327))]
+    #sel=tab_load[np.where(np.logical_and(tab_load['MJD']>=59758,tab_load['MJD']<=59770.))]
+#sel=sel[np.where(sel['hour']<1)]
+#plt.plot(sel['hour_sunset']-sel['hour'],sel['filtSkyBrightness']-sel['mbsky_through'],'ko')
+    figa, axa = plt.subplots(ncols=1, nrows=1, figsize=(10,9))
+    #axa.hist(sel['m5_with_moon']-sel['fiveSigmaDepth'],bins=20)
+    axa.plot(sel['moonPhase'],sel['m5_with_moon']-sel['fiveSigmaDepth'],'ko')
+
+    #Plot_3D(sel)
+
+    theval=80.
+    selb=sel[np.where(sel['moonZD_DEG']<theval)]
+    
+    figb, axb = plt.subplots(ncols=2, nrows=3, figsize=(14,10))
+    
+    dict_pos={}
+    dict_pos['u']=(1.,-5.5)
+    dict_pos['g']=(90.,-5.)
+    dict_pos['r']=(90.,-3.5)
+    dict_pos['i']=(15.,-4)
+    dict_pos['z']=(12.,-2.5)
+    dict_pos['y']=(12.,-1.6)
+
+    for j,band in enumerate(['u','g','r','i','z','y']):
+        sela=sel[np.where(sel['filter']==band)]
+        selac=selb[np.where(selb['filter']==band)]
+        if j<2:
+            k=0
+        if j>= 2 and j < 4:
+            k=1
+        if j>=4:
+            k=2
+        tot_label=[]
+        tot_label.append(axb[k][j%2].plot(sela['moonPhase'],sela['filtSkyBrightness']-sela['mbsky_through'],'k.',label='Moon ZD > '+str(theval)+'$^{o}$'))
+        tot_label.append(axb[k][j%2].plot(selac['moonPhase'],selac['filtSkyBrightness']-selac['mbsky_through'],'r.',label='Moon ZD < '+str(theval)+'$^{o}$'))
         axb[k][j%2].set_xlabel(r'Moon Phase',{'fontsize': 14.})
         axb[k][j%2].set_ylabel(r'$m_{sky}^{Opsim}-m_{sky}^{darksky}$',{'fontsize': 14.})
         #axb[k][j%2].legend(loc='center left',prop={'size':12})

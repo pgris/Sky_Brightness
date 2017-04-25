@@ -130,6 +130,7 @@ class SkyBrightness:
         skyBr = skyBrightness * x(targetZD_DEG) * 10. ** (-0.4 * self.k * (x(targetZD_DEG) - 1.))
 
         # Add the brightness of the moon to that of the dark sky (nanoLamberts)
+	self.moonBr=moonBr
         totBr = moonBr + skyBr
 
         # Transform it into mag/arcsec^2
@@ -143,14 +144,15 @@ class SkyBrightness:
         self.TwilightProfile()
       
         #if self.date < self.sunSetTwil or self.date > self.sunRiseTwil:
+	self.twilight=0
         (yy, mm, dd,hh,min,sec) = self.mjd2gre(mjd)[:6]
         if (hh < 20 and self.date > self.sunRiseTwil) or (hh>20  and self.date < self.sunSetTwil):
             totBr = -2.5 * math.log10(10. ** ((-totBr) / 2.5) + self.fluxTwilight)
-            
+            self.twilight=1
         #print 'after twilight',totBr,self.date,self.sunSetTwil,self.sunRiseTwil
 
         #print 'filterskybrightness',self.FilterSkyBrightness(totBr)
-        
+        self.totBr=totBr
         self.skybrightness_moon=self.FilterSkyBrightness(totBr)
         #self.skybrightness_moon=totBr
 
